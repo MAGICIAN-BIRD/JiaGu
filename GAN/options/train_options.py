@@ -1,6 +1,5 @@
 from options.base_options import BaseOptions
 
-
 class TrainOptions(BaseOptions):
     """继承BaseOptions的训练选项类"""
 
@@ -15,6 +14,9 @@ class TrainOptions(BaseOptions):
 
         # 添加 ResNet 是否启用参数
         parser.add_argument('--use_resnet', type=bool, default=False, help='是否使用ResNet作为特征提取器')
+
+        # 添加是否启用 Visdom 参数
+        parser.add_argument('--use_visdom', type=bool, default=False, help='是否使用Visdom进行可视化')
 
         # 添加可视化参数
         parser.add_argument('--display_port', type=int, default=8097, help='Visdom端口')
