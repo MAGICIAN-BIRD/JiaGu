@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 import numpy as np
 from tqdm import tqdm
@@ -13,22 +13,12 @@ print(device)
 transform = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
-    transforms.Grayscale(num_output_channels=3),  # Convert to grayscale with 3 channels (RGB)
-    transforms.GaussianBlur(kernel_size=5, sigma=1.0),  # Apply Gaussian blur
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_dir = r"Y:\py-torch\甲骨文切割\JiaGuData_large_moben"
+data_dir = r"C:\Users\何Sir\Desktop\甲骨文数据集最新\need_手写"
 dataset = datasets.ImageFolder(root=data_dir, transform=transform)
-
-# 划分数据集
-train_size = int(0.7 * len(dataset))
-val_size = int(0.15 * len(dataset))
-test_size = len(dataset) - train_size - val_size
-train_dataset, val_dataset, test_dataset = random_split(
-    dataset, [train_size, val_size, test_size]
-)
 
 # 自定义数据集类
 class ImageSequenceDataset(Dataset):
@@ -40,62 +30,41 @@ class ImageSequenceDataset(Dataset):
 
     def __getitem__(self, idx):
         img, label = self.dataset[idx]
-        img = img.permute(1, 2, 0)  # (H, W, C)
-        img = img.reshape(224, -1)  # (224, 224*3=672)
+        # 将图像转换为序列形式：每一行作为一个时间步
+        img = img.permute(1, 2, 0)  # 转换为 (H, W, C)
+        img = img.reshape(224, -1)    # 展平为 (224, 224*3) 也可以是(224, 3*224)，这里保持为一行时间步输入
         return img, label
 
-# 定义RNN模型（修正输入维度问题）
+# 定义RNN模型
 class RNNClassifier(nn.Module):
-    def __init__(self, input_size=672, hidden_size=128, num_classes=2, num_layers=2):
+    def __init__(self, input_size=224, hidden_size=128, num_classes=2, num_layers=2):
         super(RNNClassifier, self).__init__()
-        self.rnn = nn.RNN(
-            input_size=input_size,  # 修正为实际输入维度672
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True
-        )
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)  # 使用标准RNN
         self.fc = nn.Linear(hidden_size, num_classes)
 
     def forward(self, x):
-        # x形状: (batch_size, seq_len=224, input_size=672)
-        out, _ = self.rnn(x)  # 删除不必要的permute操作
-        out = out[:, -1, :]   # 取最后一个时间步
+        # x 的形状为 (batch_size, seq_len, input_size)
+        x = x.permute(0, 2, 1)  # 转换为 (batch_size, input_size, seq_len)
+        out, _ = self.rnn(x)
+        out = out[:, -1, :]  # 取最后一个时间步的输出
         out = self.fc(out)
         return out
 
 def main():
-    # 创建数据加载器（使用划分后的数据集）
-    train_loader = DataLoader(
-        ImageSequenceDataset(train_dataset),
-        batch_size=32,
-        shuffle=True,
-        num_workers=4,
-        pin_memory=True
-    )
-    val_loader = DataLoader(
-        ImageSequenceDataset(val_dataset),
-        batch_size=32,
-        shuffle=False,
-        num_workers=4,
-        pin_memory=True
-    )
-    test_loader = DataLoader(
-        ImageSequenceDataset(test_dataset),
-        batch_size=32,
-        shuffle=False,
-        num_workers=4,
-        pin_memory=True
-    )
+    # 创建数据加载器
+    train_loader = DataLoader(ImageSequenceDataset(dataset), batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+    val_loader = DataLoader(ImageSequenceDataset(dataset), batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(ImageSequenceDataset(dataset), batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
 
     # 初始化模型
     model = RNNClassifier(num_classes=len(dataset.classes)).to(device)
 
-    # 定义损失函数和优化器（添加梯度裁剪）
+    # 定义损失函数和优化器
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
 
     # 训练和评估
-    num_epochs = 50
+    num_epochs = 70
     best_val_acc = 0.0
 
     for epoch in range(num_epochs):
@@ -111,7 +80,6 @@ def main():
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 添加梯度裁剪
             optimizer.step()
 
             running_loss += loss.item()
