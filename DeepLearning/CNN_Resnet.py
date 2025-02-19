@@ -14,28 +14,28 @@ print(device)
 
 # 数据增强和预处理
 train_transform = transforms.Compose([
-    transforms.Resize((64,64)),  # 修改图片的大小为 112x112
+    transforms.Resize((224,224)),  # 修改图片的大小为 112x112
     transforms.RandomHorizontalFlip(),  # 随机水平翻转
     transforms.RandomRotation(15),  # 随机旋转，角度范围为 -15 到 15 度
-    transforms.RandomResizedCrop(64, scale=(0.8, 1.0)),  # 随机裁剪并缩放到指定大小
+    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),  # 随机裁剪并缩放到指定大小
     transforms.ToTensor(),  # 转换为 Tensor 格式，适合网络输入
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # 标准化（基于预训练模型）
 ])
 
 val_transform = transforms.Compose([
-    transforms.Resize((64,64)),  # 修改图片的大小为 112x112
+    transforms.Resize((224,224)),  # 修改图片的大小为 112x112
     transforms.ToTensor(),  # 转换为 Tensor 格式，适合网络输入
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # 标准化（基于预训练模型）
 ])
 
 test_transform = transforms.Compose([
-    transforms.Resize((64,64)),  # 修改图片的大小为 112x112
+    transforms.Resize((224,224)),  # 修改图片的大小为 112x112
     transforms.ToTensor(),  # 转换为 Tensor 格式，适合网络输入
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # 标准化（基于预训练模型）
 ])
 
 # 加载数据集并应用数据增强（仅对训练集应用增强，验证集和测试集只进行标准化处理）
-data_dir = r"Y:\py-torch\甲骨文切割\新版甲骨文数据集切割图片-摹本"  # 修改为你的数据集路径
+data_dir = r"path_to_u_data" # 修改为你的数据集路径
 train_dataset = datasets.ImageFolder(root=data_dir, transform=train_transform)
 val_dataset = datasets.ImageFolder(root=data_dir, transform=val_transform)
 test_dataset = datasets.ImageFolder(root=data_dir, transform=test_transform)
@@ -73,12 +73,12 @@ val_dataset = Subset(val_dataset, val_samples)
 test_dataset = Subset(test_dataset, test_samples)
 
 # 使用 DataLoader 加载数据，指定 batch_size 和 shuffle 参数，开启四线程加速
-train_loader = DataLoader(train_dataset, batch_size=24, shuffle=True, num_workers=6)
-val_loader = DataLoader(val_dataset, batch_size=24, shuffle=False, num_workers=6)
-test_loader = DataLoader(test_dataset, batch_size=24, shuffle=False, num_workers=6)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
 
-# 使用预训练的 ResNet-18 模型
-model = models.resnet18(weights="IMAGENET1K_V1")
+# 使用预训练的 ResNet-34 模型
+model = models.resnet34(weights="IMAGENET1K_V1")
 
 # 修改最后一层（全连接层），使其适应我们的分类数（即子文件夹的数量）
 num_ftrs = model.fc.in_features
@@ -95,7 +95,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 scaler = GradScaler()
 
 # 训练模型
-num_epochs = 10
+num_epochs = 30
 # 设置训练轮数
 if __name__ == "__main__":  # 添加这个保护语句，确保 multiprocessing 正常工作
     for epoch in range(num_epochs):
